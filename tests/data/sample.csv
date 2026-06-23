@@ -1,0 +1,4 @@
+Sample ID,Temperature (K),Pressure [Pa],Synthesis Date,Notes
+S001,300.5,101325,2026-01-05,first batch
+S002,310.2,101300,2026-01-06,
+S003,295.0,101400,2026-01-07,re-run

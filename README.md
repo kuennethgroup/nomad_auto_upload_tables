@@ -1,0 +1,134 @@
+# nomad-auto-upload-tables
+
+A NOMAD Oasis plugin, developed by the Kuenneth Research Group, that automatically
+guesses a schema/ontology for an uploaded Excel (`.xlsx`/`.xls`) or CSV
+file, and lets the user review and correct that guess directly in NOMAD's
+normal entry editor before the data is turned into structured, queryable
+data.
+
+## How it works
+
+1. Drop any `.xlsx`/`.xls`/`.csv` file into a NOMAD upload. A `TabularGuess`
+   entry is created automatically (`parsers/tabular_guess.py`).
+2. For every column, propose:
+   - a quantity name (`guessed_name`)
+   - a data type (`guessed_type`: string/integer/float/boolean/datetime)
+   - a unit, e.g. parsed out of headers like `"Temperature (K)"` or `"Pressure [Pa]"`
+   - an ontology category (`category`): sample id, composition, temperature,
+     pressure, time, mass, ... (see `CATEGORIES` in `guessing.py`)
+   - a confidence score
+
+   If an OpenAI-compatible chat completions endpoint is configured (`api_key`
+   and `model` set, see below), an AI call (`ai_guessing.py`) makes this guess
+   from the column headers/dtypes/sample values. Otherwise — or if that call
+   fails for any reason (bad key, network, unparseable response) — it falls
+   back to local heuristics (`guessing.py`: keyword matching against a small
+   controlled vocabulary, pandas dtypes, unit regexes). The entry's
+   `ai_assisted` flag records which path was taken.
+3. Open the entry in the NOMAD GUI. Every guessed field is a normal
+   ELN-editable form field — fix any wrong guesses, untick `include` to drop
+   a column, etc.
+4. Tick `confirm_schema` and save. This rebuilds `rows` (one per source
+   spreadsheet row, each holding the included columns as name/value/unit
+   triples) from your corrected mapping.
+
+Re-running "reprocess" on an upload will not clobber a confirmed entry: the
+parser checks `confirm_schema` and is a no-op once it's set.
+
+## Configuring the AI endpoint
+
+The parser entry point (`nomad_auto_upload_tables.parsers:tabular_guess_parser`) takes
+three extra fields, set by an Oasis admin in `nomad.yaml`:
+
+```yaml
+plugins:
+  entry_points:
+    options:
+      nomad_auto_upload_tables.parsers:tabular_guess_parser:
+        api_key: '<your API key>'
+        model: 'meta-llama-3.1-8b-instruct'
+        base_url: 'https://chat-ai.academiccloud.de/v1' # optional, this is the default
+```
+
+`base_url` defaults to GWDG's SAIA service
+(https://docs.hpc.gwdg.de/services/ai-services/saia/index.html), which is
+OpenAI-compatible, but any OpenAI-compatible chat completions endpoint works
+(OpenAI itself, a local Ollama/vLLM server, etc.) — just set `base_url`
+accordingly. Without `api_key`/`model` set, the plugin silently uses the
+local heuristics only; no AI call is ever made.
+
+### Scope / what's deliberately not built (yet)
+
+- "Upload a pandas DataFrame" works at the library level only: `guessing.py`
+  has no NOMAD or file-IO dependency and operates on a plain `DataFrame`
+  (see `guess_columns(df)`), so it can be reused from a script or a future
+  programmatic entry point. There isn't a NOMAD concept of uploading an
+  in-memory DataFrame directly (uploads are file-based).
+- The schema-review UI is NOMAD's stock entry editor (driven by the ELN
+  annotations on `GuessedColumn`/`TabularGuess`), not a bespoke screen. A
+  fancier interactive UI would require a NORTH tool (Docker container behind
+  JupyterHub) — out of scope for this first version.
+- The structured output (`GuessedProperty.value`) is stored as text, not
+  typed `Quantity` values — NOMAD's metainfo system doesn't support
+  synthesizing brand-new `Quantity` definitions at runtime, only filling
+  instances of pre-declared ones.
+
+## Development
+
+```bash
+uv sync --extra dev
+uv run pytest tests/
+```
+
+`guessing.py` has no `nomad` dependency and is tested standalone. The
+schema package and parser are exercised against the real `nomad-lab`
+package in `tests/test_tabular_guess.py`, and can be run end-to-end with:
+
+```bash
+uv run nomad parse tests/data/sample.csv --show-archive
+uv run nomad parse tests/data/sample.xlsx --show-archive
+```
+
+## Installing this plugin into a docker-compose NOMAD Oasis
+
+Plugins for a docker-compose-based Oasis are **not** added by editing
+`docker-compose.yaml` or volume-mounting this repo. Modern Oasis deployments
+(based on [`nomad-distro-template`](https://github.com/FAIRmat-NFDI/nomad-distro-template))
+bake plugins into a custom-built image via a CI pipeline, driven entirely by
+that *distro* repo's `pyproject.toml` — `docker-compose.yaml` itself needs no
+changes.
+
+This repo is at [kuennethgroup/nomad_auto_upload_tables](https://github.com/kuennethgroup/nomad_auto_upload_tables).
+
+In your Oasis distro repo:
+
+1. Push this plugin to GitHub (`git push origin main`) if you haven't already.
+2. In the distro repo's `pyproject.toml`, add this plugin under
+   `[project.optional-dependencies].plugins`, pinned to a commit or tag:
+
+   ```toml
+   [project.optional-dependencies]
+   plugins = [
+       "nomad-auto-upload-tables @ git+https://github.com/kuennethgroup/nomad_auto_upload_tables.git@<commit-or-tag>",
+   ]
+   ```
+
+3. Commit and push to the distro repo's main branch — its CI builds a new
+   image with this plugin installed.
+4. On the Oasis host:
+
+   ```bash
+   docker compose pull
+   docker compose up -d
+   ```
+
+If you're not yet using `nomad-distro-template`, the same `pyproject.toml`
+mechanism applies wherever your Oasis image build configures its plugin
+list — find the project that builds the image your `docker-compose.yaml`
+references and add this plugin there.
+
+## License
+
+Copyright (c) 2026 Kuenneth Research Group. Licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — see
+[LICENSE](LICENSE).

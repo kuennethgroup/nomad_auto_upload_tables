@@ -1,0 +1,41 @@
+[project]
+name = "nomad-auto-upload-tables"
+version = "0.1.0"
+description = "NOMAD Oasis plugin that guesses a schema/ontology for uploaded Excel/CSV data and lets the user review and correct it before structuring it."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "CC-BY-4.0" }
+authors = [{ name = "Christopher Kuenneth" }]
+dependencies = [
+    "nomad-lab>=1.3.4",
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+    "openai>=1.0",
+]
+
+[project.urls]
+Repository = "https://github.com/kuennethgroup/nomad_auto_upload_tables"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.entry-points.'nomad.plugin']
+tabular_guess_schema = "nomad_auto_upload_tables.schema_packages:tabular_guess_schema"
+tabular_guess_parser = "nomad_auto_upload_tables.parsers:tabular_guess_parser"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[[tool.uv.index]]
+# Hosts newer nomad-lab releases than the public PyPI mirror.
+name = "nomad-gitlab"
+url = "https://gitlab.mpcdf.mpg.de/api/v4/projects/2187/packages/pypi/simple"
+
+[tool.uv.sources]
+nomad-lab = { index = "nomad-gitlab" }
