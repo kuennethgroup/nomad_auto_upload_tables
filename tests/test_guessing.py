@@ -86,3 +86,22 @@ def test_coerce_value_handles_missing_and_types():
     assert coerce_value('3.5', 'float') == 3.5
     assert coerce_value('7', 'integer') == 7
     assert coerce_value('S001', 'string') == 'S001'
+
+
+def test_guess_columns_handles_compound_units_and_padded_headers():
+    df, _ = read_table(DATA_DIR / 'data_test.csv')
+    columns = {c.header: c for c in guess_columns(df)}
+
+    assert columns['Block A '].guessed_name == 'block_a'
+    assert columns['Block A '].guessed_type == 'integer'
+
+    start = columns['start [m/s]']
+    assert start.guessed_unit == 'm/s'
+    assert start.guessed_type == 'integer'
+
+    delta = columns['delta [km]']
+    assert delta.guessed_unit == 'km'
+    assert delta.guessed_type == 'float'
+
+    # A trailing fractional value pulls the whole column to float.
+    assert columns['Block'].guessed_type == 'float'

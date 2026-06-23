@@ -46,7 +46,7 @@ plugins:
     options:
       nomad_auto_upload_tables.parsers:tabular_guess_parser:
         api_key: '<your API key>'
-        model: 'meta-llama-3.1-8b-instruct'
+        model: 'your_model'
         base_url: 'https://chat-ai.academiccloud.de/v1' # optional, this is the default
 ```
 
