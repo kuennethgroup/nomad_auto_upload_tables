@@ -3,7 +3,7 @@ name = "nomad-auto-upload-tables"
 version = "0.1.0"
 description = "NOMAD Oasis plugin that guesses a schema/ontology for uploaded Excel/CSV data and lets the user review and correct it before structuring it."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = { text = "CC-BY-4.0" }
 authors = [{ name = "Christopher Kuenneth" }]
 dependencies = [
